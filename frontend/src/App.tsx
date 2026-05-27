@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { authApi } from './api/auth.js';
 import { useSession } from './store/session.js';
 import { Login } from './pages/Login.js';
+import { Planning } from './pages/Planning.js';
 import { NavHeader } from './components/NavHeader.js';
 import { useNotifications } from './hooks/useNotifications.js';
 
@@ -30,7 +31,7 @@ export function App() {
       <Route path="/login" element={<Login />} />
       <Route element={<Protected />}>
         <Route path="/" element={<Navigate to="/planning" replace />} />
-        <Route path="/planning" element={<div className="app"><p>Planning (TODO)</p></div>} />
+        <Route path="/planning" element={<Planning />} />
         <Route path="/receiving" element={<div className="app"><p>Receiving (TODO)</p></div>} />
         <Route path="/receiving/:id" element={<div className="app"><p>Receiving task (TODO)</p></div>} />
       </Route>

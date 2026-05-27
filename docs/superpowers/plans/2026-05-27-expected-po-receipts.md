@@ -2847,7 +2847,59 @@ export function makePrintersRouter(getDw: (req: any) => any) {
 
 - [ ] **Step 6: Create `backend/src/routes/eplants.ts`**
 
-Port from `../delmiaworks-production-reporter/backend/src/routes/eplants.ts` (1:1). It returns the list of eplants for the configured base URL.
+This route is **public** (no `requireSession` middleware) — users need the eplant list before logging in to populate the login-form dropdown. The `baseUrl` of the DW server is passed as a query parameter since there is no session to read it from.
+
+```ts
+import { Router } from 'express';
+
+export function makeEPlantsRouter(getDw: (cfg: { baseUrl: string }) => any) {
+  const router = Router();
+
+  router.get('/', async (req, res, next) => {
+    try {
+      const baseUrl = String(req.query.baseUrl ?? '');
+      if (!baseUrl) { res.status(400).json({ error: 'MISSING_BASE_URL' }); return; }
+      const dw = getDw({ baseUrl });
+      const eplants = await dw.eplants.list();
+      res.json({ eplants });
+    } catch (e) { next(e); }
+  });
+
+  return router;
+}
+```
+
+Mounted in `server.ts` without `makeRequireSession`:
+```ts
+app.use('/api/eplants', makeEPlantsRouter(dwForBaseUrl));
+```
+
+Also create `backend/test/routes/eplants.test.ts`:
+```ts
+import { describe, it, expect, vi } from 'vitest';
+import express from 'express';
+import request from 'supertest';
+import { makeEPlantsRouter } from '../../src/routes/eplants.js';
+
+describe('GET /api/eplants', () => {
+  it('400 on missing baseUrl', async () => {
+    const app = express();
+    app.use('/api/eplants', makeEPlantsRouter(() => ({})));
+    const res = await request(app).get('/api/eplants');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('MISSING_BASE_URL');
+  });
+
+  it('200 with eplants list when baseUrl provided', async () => {
+    const dw = { eplants: { list: vi.fn().mockResolvedValue([{ id: 1, name: 'Plant A' }, { id: 2, name: 'Plant B' }]) } };
+    const app = express();
+    app.use('/api/eplants', makeEPlantsRouter(() => dw));
+    const res = await request(app).get('/api/eplants?baseUrl=http://dw');
+    expect(res.status).toBe(200);
+    expect(res.body.eplants).toHaveLength(2);
+  });
+});
+```
 
 - [ ] **Step 7: Run tests, expect PASS**
 

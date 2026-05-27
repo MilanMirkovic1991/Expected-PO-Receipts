@@ -11,7 +11,7 @@ export function NavHeader() {
   const { data } = useQuery({ queryKey: ['tasks', 'mine'], queryFn: tasksApi.listMine, refetchInterval: 60_000, enabled: !!me });
   const count = data?.tasks.length ?? 0;
 
-  async function logout() { await authApi.logout(); setMe(null); navigate('/login'); }
+  async function logout() { try { await authApi.logout(); } catch { /* best-effort */ } setMe(null); navigate('/login'); }
 
   return (
     <header style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.5rem 1rem', borderBottom: '1px solid #eee' }}>

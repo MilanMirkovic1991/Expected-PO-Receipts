@@ -14,7 +14,7 @@ vi.mock('../src/api/auth.js', () => ({
 
 describe('App', () => {
   it('renders loading state on boot', () => {
-    const qc = new QueryClient();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={qc}>
         <MemoryRouter><App /></MemoryRouter>

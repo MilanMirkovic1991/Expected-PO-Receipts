@@ -10,6 +10,7 @@ export function useNotifications() {
     if (!me) return;
     let es: EventSource | null = null;
     let backoff = 1000;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
 
     function connect() {
       es = new EventSource('/api/notifications/stream', { withCredentials: true });
@@ -17,11 +18,11 @@ export function useNotifications() {
       es.addEventListener('open', () => { backoff = 1000; });
       es.addEventListener('error', () => {
         es?.close();
-        setTimeout(connect, backoff);
+        timerId = setTimeout(connect, backoff);
         backoff = Math.min(backoff * 2, 30000);
       });
     }
     connect();
-    return () => { es?.close(); };
+    return () => { es?.close(); if (timerId !== null) clearTimeout(timerId); };
   }, [me, qc]);
 }

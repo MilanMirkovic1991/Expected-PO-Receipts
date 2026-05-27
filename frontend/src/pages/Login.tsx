@@ -9,7 +9,8 @@ export function Login() {
   const location = useLocation();
   const setMe = useSession(s => s.setMe);
 
-  const [baseUrl, setBaseUrl] = useState(localStorage.getItem('epr.baseUrl') ?? '');
+  const defaultBaseUrl = (import.meta.env.VITE_DW_BASE_URL as string | undefined) ?? '';
+  const [baseUrl, setBaseUrl] = useState(localStorage.getItem('epr.baseUrl') ?? defaultBaseUrl);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [database, setDatabase] = useState(localStorage.getItem('epr.database') ?? '');

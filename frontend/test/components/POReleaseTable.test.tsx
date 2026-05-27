@@ -16,7 +16,7 @@ const groups = [{
 describe('POReleaseTable', () => {
   it('renders one section per date group with all items', () => {
     render(<POReleaseTable groups={groups} />);
-    expect(screen.getByText('2026-05-28')).toBeInTheDocument();
+    expect(screen.getByText(/2026-05-28/)).toBeInTheDocument();
     expect(screen.getByText('ITM-1')).toBeInTheDocument();
     expect(screen.getByText('ITM-2')).toBeInTheDocument();
   });

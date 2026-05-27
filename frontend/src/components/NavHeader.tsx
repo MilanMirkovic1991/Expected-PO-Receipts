@@ -13,15 +13,30 @@ export function NavHeader() {
 
   async function logout() { try { await authApi.logout(); } catch { /* best-effort */ } setMe(null); navigate('/login'); }
 
+  const initials = (me?.username ?? '?').slice(0, 2).toUpperCase();
+
   return (
-    <header style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.5rem 1rem', borderBottom: '1px solid #eee' }}>
-      <strong style={{ marginRight: 'auto' }}>Expected PO Receipts</strong>
-      <NavLink to="/planning">Planning</NavLink>
-      <NavLink to="/receiving">
-        Receiving {count > 0 && <span style={{ background: '#0a7', color: 'white', borderRadius: 8, padding: '0 6px', fontSize: 12 }}>{count}</span>}
-      </NavLink>
-      <span>{me?.username}</span>
-      <button onClick={logout}>Logout</button>
+    <header className="nav">
+      <div className="nav__brand">
+        <span className="nav__logo">📦</span>
+        <span>Expected PO Receipts</span>
+      </div>
+
+      <nav className="nav__links">
+        <NavLink to="/planning" className={({ isActive }) => 'nav__link' + (isActive ? ' active' : '')}>
+          <span aria-hidden>📋</span> Planning
+        </NavLink>
+        <NavLink to="/receiving" className={({ isActive }) => 'nav__link' + (isActive ? ' active' : '')}>
+          <span aria-hidden>📥</span> Receiving
+          {count > 0 && <span className="badge badge--count" aria-label={`${count} open tasks`}>{count}</span>}
+        </NavLink>
+      </nav>
+
+      <div className="nav__user">
+        <span className="nav__user-avatar" title={me?.username ?? ''}>{initials}</span>
+        <span>{me?.username}</span>
+      </div>
+      <button className="btn btn--ghost btn--sm" onClick={logout}>Logout</button>
     </header>
   );
 }

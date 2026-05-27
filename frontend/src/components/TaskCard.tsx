@@ -1,15 +1,41 @@
 import { Link } from 'react-router-dom';
 import type { TaskSummary } from '../types.js';
 
+const STATUS_BADGE: Record<TaskSummary['status'], string> = {
+  open: 'badge--info',
+  in_progress: 'badge--warning',
+  completed: 'badge--success',
+  cancelled: 'badge--danger',
+};
+
+const STATUS_LABEL: Record<TaskSummary['status'], string> = {
+  open: 'Open',
+  in_progress: 'In progress',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+};
+
 export function TaskCard({ task }: { task: TaskSummary }) {
   return (
-    <article style={{ border: '1px solid #ddd', borderRadius: 4, padding: '1rem', marginBottom: '0.5rem' }}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <strong>Task #{task.id}</strong>
-        <span style={{ background: '#e5f5e5', padding: '0 6px', borderRadius: 8, fontSize: 12 }}>{task.status}</span>
-      </header>
-      <p style={{ margin: '0.5rem 0' }}>From: {task.createdBy} · Period: {task.dateFrom} → {task.dateTo}</p>
-      <Link to={`/receiving/${task.id}`}>Open →</Link>
-    </article>
+    <Link to={`/receiving/${task.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+      <article className="card card--hover">
+        <div className="card__header">
+          <div className="card__title">
+            <span aria-hidden>📋</span>
+            Task #{task.id}
+          </div>
+          <span className={'badge ' + (STATUS_BADGE[task.status] ?? '')}>
+            {STATUS_LABEL[task.status] ?? task.status}
+          </span>
+        </div>
+        <div className="card__meta">
+          <div><strong className="muted">From:</strong> {task.createdBy}</div>
+          <div><strong className="muted">Period:</strong> {task.dateFrom} → {task.dateTo}</div>
+        </div>
+        <div className="row row--end">
+          <span style={{ color: 'var(--brand-700)', fontWeight: 500 }}>Open task →</span>
+        </div>
+      </article>
+    </Link>
   );
 }

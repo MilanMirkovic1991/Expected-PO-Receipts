@@ -15,7 +15,7 @@ export function Planning() {
   const assignedUsername = usePlanning(s => s.assignedUsername);
   const setAssignedUsername = usePlanning(s => s.setAssignedUsername);
   const reset = usePlanning(s => s.reset);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ kind: 'success' | 'danger'; message: string } | null>(null);
 
   const releases = useQuery({
     queryKey: ['poReleases', dateFrom, dateTo],
@@ -38,39 +38,75 @@ export function Planning() {
         })),
       });
     },
-    onSuccess: (data) => { setToast(`Task #${data.taskId} created (${data.itemCount} items)`); reset(); qc.invalidateQueries({ queryKey: ['poReleases'] }); },
-    onError: (e: any) => setToast(`Error: ${e?.message ?? 'unknown'}`),
+    onSuccess: (data) => {
+      setToast({ kind: 'success', message: `Task #${data.taskId} created with ${data.itemCount} item${data.itemCount !== 1 ? 's' : ''}.` });
+      reset();
+      qc.invalidateQueries({ queryKey: ['poReleases'] });
+    },
+    onError: (e: any) => setToast({ kind: 'danger', message: `Error: ${e?.message ?? 'unknown'}` }),
   });
+
+  const totalItems = releases.data?.groups.reduce((sum, g) => sum + g.items.length, 0) ?? 0;
 
   return (
     <div className="app">
-      <h2>Planning</h2>
-      <DateRangePicker />
-      <p>
-        <button onClick={() => releases.refetch()}>Refresh</button>
-      </p>
-      {releases.isLoading && <p>Loading…</p>}
-      {releases.isError && <p style={{ color: 'crimson' }}>Failed to load PO releases.</p>}
+      <div className="row" style={{ alignItems: 'baseline', marginBottom: '1.25rem' }}>
+        <h2 style={{ margin: 0 }}>Planning</h2>
+        <span className="muted">Select expected receipts and assign them to a warehouse worker.</span>
+      </div>
+
+      {toast && (
+        <div className={'alert alert--' + toast.kind} role="status">
+          <span className="alert__icon">{toast.kind === 'success' ? '✓' : '⚠'}</span>
+          <span>{toast.message}</span>
+          <span className="spacer" />
+          <button className="btn btn--ghost btn--sm" onClick={() => setToast(null)}>Dismiss</button>
+        </div>
+      )}
+
+      <div className="toolbar">
+        <DateRangePicker />
+        <button className="btn" onClick={() => releases.refetch()} disabled={releases.isFetching}>
+          {releases.isFetching ? <><span className="spinner" /> Refreshing…</> : <>🔄 Refresh</>}
+        </button>
+        {totalItems > 0 && (
+          <span className="muted" style={{ marginLeft: 'auto' }}>
+            {totalItems} item{totalItems !== 1 ? 's' : ''} across {releases.data?.groups.length} day{(releases.data?.groups.length ?? 0) !== 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+
+      {releases.isLoading && (
+        <div className="loading-state"><span className="spinner" /> Loading PO releases…</div>
+      )}
+      {releases.isError && (
+        <div className="alert alert--danger" role="alert">
+          <span className="alert__icon">⚠</span>
+          <span>Failed to load PO releases. Try Refresh.</span>
+        </div>
+      )}
       {releases.data && <POReleaseTable groups={releases.data.groups} />}
 
-      <section style={{ marginTop: '1rem', padding: '1rem', background: '#f7f7f7', borderRadius: 4 }}>
-        <label>Assign to:{' '}
-          <select value={assignedUsername} onChange={e => setAssignedUsername(e.target.value)}>
-            <option value="">— pick a worker —</option>
-            {employees.data?.employees.map(e => (
-              <option key={e.id} value={e.username}>{e.displayName} ({e.username})</option>
-            ))}
-          </select>
-        </label>
-        <p>Selected: {selected.size} item(s)</p>
+      <div className="action-bar">
+        <div className="action-bar__info">
+          {selected.size === 0
+            ? <>Select one or more items to generate a task.</>
+            : <><strong>{selected.size}</strong> item{selected.size !== 1 ? 's' : ''} selected</>}
+        </div>
+        <select value={assignedUsername} onChange={e => setAssignedUsername(e.target.value)} style={{ width: 240 }}>
+          <option value="">👤 Assign to…</option>
+          {employees.data?.employees.map(e => (
+            <option key={e.id} value={e.username}>{e.displayName} ({e.username})</option>
+          ))}
+        </select>
         <button
+          className="btn btn--primary"
           disabled={selected.size === 0 || !assignedUsername || create.isPending}
           onClick={() => create.mutate()}
         >
-          {create.isPending ? 'Creating…' : 'Generate Expected POs'}
+          {create.isPending ? <><span className="spinner" /> Creating…</> : <>📨 Generate Expected POs</>}
         </button>
-        {toast && <p>{toast}</p>}
-      </section>
+      </div>
     </div>
   );
 }

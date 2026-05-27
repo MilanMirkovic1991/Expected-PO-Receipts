@@ -40,19 +40,21 @@ export function makeEmployeesApi(http: AxiosInstance) {
         return !INACTIVE.has(status);
       });
 
-      const mapped = filtered.map(r => ({
-        id: Number(r.Id ?? r.TeamMemberId ?? r.EmployeeId ?? 0),
-        displayName: String(
-          r.DisplayName
-          ?? `${r.FirstName ?? ''} ${r.LastName ?? ''}`.trim()
+      const mapped = filtered.map(r => {
+        const fullName = `${r.FirstName ?? ''} ${r.LastName ?? ''}`.trim();
+        const display = r.DisplayName
+          || fullName
           || r.UserName
           || r.EmployeeNo
-          || `#${r.Id ?? '?'}`,
-        ),
-        username: String(r.UserName ?? r.Username ?? ''),
-        email: String(r.Email ?? r.EmailAddress ?? ''),
-        badge: String(r.BadgeNo ?? r.EmployeeNo ?? r.Badge ?? ''),
-      }));
+          || `#${r.Id ?? '?'}`;
+        return {
+          id: Number(r.Id ?? r.TeamMemberId ?? r.EmployeeId ?? 0),
+          displayName: String(display),
+          username: String(r.UserName ?? r.Username ?? ''),
+          email: String(r.Email ?? r.EmailAddress ?? ''),
+          badge: String(r.BadgeNo ?? r.EmployeeNo ?? r.Badge ?? ''),
+        };
+      });
 
       logger.info({ active: mapped.length, total: rows.length }, 'dw.employees.listTeamMembers: filtered');
       return mapped;

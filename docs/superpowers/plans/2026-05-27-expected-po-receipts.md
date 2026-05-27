@@ -3120,6 +3120,7 @@ git commit -m "feat(routes): SSE /api/notifications/stream"
 import express, { Express } from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
+import { pathToFileURL } from 'node:url';
 import { loadConfig } from './config.js';
 import { logger } from './logger.js';
 import { openDb } from './db/index.js';
@@ -3186,7 +3187,7 @@ export function createApp(deps?: Partial<Deps>): Express {
   return app;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const cfg = loadConfig();
   const app = createApp();
   app.listen(cfg.port, () => logger.info({ port: cfg.port }, 'server listening'));

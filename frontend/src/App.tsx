@@ -5,6 +5,7 @@ import { useSession } from './store/session.js';
 import { Login } from './pages/Login.js';
 import { Planning } from './pages/Planning.js';
 import { Receiving } from './pages/Receiving.js';
+import { ReceivingTask } from './pages/ReceivingTask.js';
 import { NavHeader } from './components/NavHeader.js';
 import { useNotifications } from './hooks/useNotifications.js';
 
@@ -34,7 +35,7 @@ export function App() {
         <Route path="/" element={<Navigate to="/planning" replace />} />
         <Route path="/planning" element={<Planning />} />
         <Route path="/receiving" element={<Receiving />} />
-        <Route path="/receiving/:id" element={<div className="app"><p>Receiving task (TODO)</p></div>} />
+        <Route path="/receiving/:id" element={<ReceivingTask />} />
       </Route>
     </Routes>
   );

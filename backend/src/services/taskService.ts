@@ -60,7 +60,7 @@ export function createTaskService(deps: {
           itemCount: input.items.length,
           dateRange: `${input.dateFrom} .. ${input.dateTo}`,
         });
-        deps.tasks.setNotificationResult(taskId, r.success ? { success: true } : { success: false, error: r.error });
+        deps.tasks.setNotificationResult(taskId, r.success ? { success: true } : { success: false, ...(r.error !== undefined && { error: r.error }) });
       } else {
         deps.tasks.setNotificationResult(taskId, { success: false, error: 'no email on employee' });
       }
@@ -116,7 +116,8 @@ export function createTaskService(deps: {
         qty: input.input.qty, lotNo: input.input.lotNo,
         locationId: input.input.locationId, locationName: input.input.locationName,
         dwReceiptId: receiptId, dwMasterLabelId: masterLabelId,
-        labelPrinted, labelPrintError,
+        labelPrinted,
+        ...(labelPrintError !== undefined && { labelPrintError }),
       });
       if (!updated) throw appError('ITEM_ALREADY_RECEIVED', 'item was concurrently received');
 
@@ -127,7 +128,13 @@ export function createTaskService(deps: {
       }
       const final = deps.tasks.getById(input.taskId)!;
 
-      return { itemStatus: 'received', dwReceiptId: receiptId, taskStatus: final.status, labelPrinted, labelPrintError };
+      return {
+        itemStatus: 'received',
+        dwReceiptId: receiptId,
+        taskStatus: final.status,
+        labelPrinted,
+        ...(labelPrintError !== undefined && { labelPrintError }),
+      };
     },
   };
 }

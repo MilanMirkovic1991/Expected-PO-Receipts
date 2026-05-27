@@ -68,7 +68,8 @@ export function createApp(deps?: Partial<Deps>): Express {
   return app;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+const mainScript = process.argv[1];
+if (mainScript && import.meta.url === pathToFileURL(mainScript).href) {
   const cfg = loadConfig();
   const app = createApp();
   app.listen(cfg.port, () => logger.info({ port: cfg.port }, 'server listening'));

@@ -105,4 +105,34 @@ describe('taskService.receiveItem', () => {
       sessionUsername: 'worker',
     })).rejects.toMatchObject({ code: 'ITEM_ALREADY_RECEIVED' });
   });
+
+  it('rejects qty <= 0 with INVALID_QTY', async () => {
+    const svc = createTaskService({ tasks, items, mailer: fakeMailer(), notif: fakeNotif() });
+    const { taskId } = await svc.createTask({
+      createdByUsername: 'planner', createdByEplantId: 1,
+      assignedTo: { id: 42, username: 'worker', email: 'w@x', name: 'Worker' },
+      dateFrom: '2026-05-27', dateTo: '2026-06-03', items: [item],
+    });
+    const [it] = items.listByTask(taskId);
+    await expect(svc.receiveItem({
+      taskId, itemId: it!.id, dw: fakeDw() as any,
+      input: { qty: 0, lotNo: 'L', locationId: 1, locationName: 'X', printerName: 'P1' },
+      sessionUsername: 'worker',
+    })).rejects.toMatchObject({ code: 'INVALID_QTY' });
+  });
+
+  it('rejects qty > qtyExpected with INVALID_QTY', async () => {
+    const svc = createTaskService({ tasks, items, mailer: fakeMailer(), notif: fakeNotif() });
+    const { taskId } = await svc.createTask({
+      createdByUsername: 'planner', createdByEplantId: 1,
+      assignedTo: { id: 42, username: 'worker', email: 'w@x', name: 'Worker' },
+      dateFrom: '2026-05-27', dateTo: '2026-06-03', items: [item],
+    });
+    const [it] = items.listByTask(taskId);
+    await expect(svc.receiveItem({
+      taskId, itemId: it!.id, dw: fakeDw() as any,
+      input: { qty: 999, lotNo: 'L', locationId: 1, locationName: 'X', printerName: 'P1' },
+      sessionUsername: 'worker',
+    })).rejects.toMatchObject({ code: 'INVALID_QTY' });
+  });
 });

@@ -44,7 +44,7 @@ export function createTaskService(deps: {
 }) {
   return {
     async createTask(input: CreateTaskInput): Promise<{ taskId: number; itemCount: number }> {
-      const taskId = deps.tasks.insert({
+      const taskId = deps.tasks.insertWithItems({
         createdByUsername: input.createdByUsername,
         createdByEplantId: input.createdByEplantId,
         assignedToEmployeeId: input.assignedTo.id,
@@ -52,8 +52,7 @@ export function createTaskService(deps: {
         assignedToEmail: input.assignedTo.email,
         assignedToName: input.assignedTo.name,
         dateFrom: input.dateFrom, dateTo: input.dateTo,
-      });
-      deps.items.bulkInsert(taskId, input.items);
+      }, input.items);
 
       if (input.assignedTo.email) {
         const r = await deps.mailer.sendTaskCreated({
@@ -109,12 +108,17 @@ export function createTaskService(deps: {
         logger.warn({ taskId: input.taskId, itemId: input.itemId, receiptId, masterLabelId, err: labelPrintError }, 'label.print.failed');
       }
 
-      deps.items.markReceived(input.itemId, {
+      // NOTE: A narrow race window exists where two concurrent requests could both reach DW
+      // before either writes back — resulting in duplicate DW receipts. The DB state remains
+      // consistent (only the first writer's row is accepted), but the DW double-post cannot
+      // be prevented without DW-side idempotency support. Document and monitor as known limitation.
+      const updated = deps.items.markReceived(input.itemId, {
         qty: input.input.qty, lotNo: input.input.lotNo,
         locationId: input.input.locationId, locationName: input.input.locationName,
         dwReceiptId: receiptId, dwMasterLabelId: masterLabelId,
         labelPrinted, labelPrintError,
       });
+      if (!updated) throw appError('ITEM_ALREADY_RECEIVED', 'item was concurrently received');
 
       const pending = deps.items.countPending(input.taskId);
       if (pending === 0) {

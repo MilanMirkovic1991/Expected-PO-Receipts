@@ -31,14 +31,27 @@ describe('ItemQueries', () => {
       { poId: 1, poNo: 'PO-1', poDetailId: 10, poReleaseId: 100, promiseDate: '2026-05-28', arInvtId: 500, itemClass: 'A', itemNo: 'ITM-1', itemRev: 'R1', itemDescription: 'D', qtyExpected: 100, defaultRecvDesignator: 'DEFAULT' },
     ]);
     const [item] = items.listByTask(taskId);
-    items.markReceived(item!.id, {
+    const wasUpdated = items.markReceived(item!.id, {
       qty: 100, lotNo: 'LOT-1', locationId: 7, locationName: 'A1', dwReceiptId: 555,
       dwMasterLabelId: 666, labelPrinted: true,
     });
+    expect(wasUpdated).toBe(true);
     const updated = items.getById(item!.id);
     expect(updated?.status).toBe('received');
     expect(updated?.received_qty).toBe(100);
     expect(updated?.dw_receipt_id).toBe(555);
+  });
+
+  it('markReceived returns false when item is not pending', () => {
+    items.bulkInsert(taskId, [
+      { poId: 1, poNo: 'PO-1', poDetailId: 10, poReleaseId: 100, promiseDate: '2026-05-28', arInvtId: 500, itemClass: 'A', itemNo: 'ITM-1', itemRev: 'R1', itemDescription: 'D', qtyExpected: 100, defaultRecvDesignator: 'DEFAULT' },
+    ]);
+    const [item] = items.listByTask(taskId);
+    // First call succeeds
+    items.markReceived(item!.id, { qty: 100, lotNo: 'L', locationId: 7, locationName: 'A1', dwReceiptId: 1, dwMasterLabelId: 2, labelPrinted: false });
+    // Second call on already-received item should return false
+    const second = items.markReceived(item!.id, { qty: 100, lotNo: 'L', locationId: 7, locationName: 'A1', dwReceiptId: 99, dwMasterLabelId: 99, labelPrinted: false });
+    expect(second).toBe(false);
   });
 
   it('counts pending items per task', () => {

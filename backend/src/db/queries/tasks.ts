@@ -1,4 +1,5 @@
 import type { DB } from '../index.js';
+import type { ItemInsert } from './items.js';
 
 export type TaskRow = {
   id: number;
@@ -74,5 +75,36 @@ export class TaskQueries {
     } else {
       this.db.prepare(`UPDATE expected_receipt_task SET notification_error = ? WHERE id = ?`).run(result.error ?? 'unknown', id);
     }
+  }
+
+  insertWithItems(input: TaskInsert, itemInserts: ItemInsert[]): number {
+    const insertTaskStmt = this.db.prepare(`
+      INSERT INTO expected_receipt_task
+        (created_by_username, created_by_eplant_id, assigned_to_employee_id,
+         assigned_to_username, assigned_to_email, assigned_to_name, date_from, date_to)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const insertItemStmt = this.db.prepare(`
+      INSERT INTO expected_receipt_item
+        (task_id, po_id, po_no, po_detail_id, po_release_id, promise_date, ar_invt_id,
+         item_class, item_no, item_rev, item_description, qty_expected, default_recv_designator)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const tx = this.db.transaction((task: TaskInsert, items: ItemInsert[]) => {
+      const res = insertTaskStmt.run(
+        task.createdByUsername, task.createdByEplantId, task.assignedToEmployeeId,
+        task.assignedToUsername, task.assignedToEmail, task.assignedToName,
+        task.dateFrom, task.dateTo,
+      );
+      const taskId = Number(res.lastInsertRowid);
+      for (const r of items) {
+        insertItemStmt.run(
+          taskId, r.poId, r.poNo, r.poDetailId, r.poReleaseId, r.promiseDate, r.arInvtId,
+          r.itemClass, r.itemNo, r.itemRev, r.itemDescription, r.qtyExpected, r.defaultRecvDesignator,
+        );
+      }
+      return taskId;
+    });
+    return tx(input, itemInserts);
   }
 }

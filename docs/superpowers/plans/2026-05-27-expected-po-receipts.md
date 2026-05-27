@@ -707,6 +707,7 @@ describe('TaskQueries', () => {
 
 ```ts
 import type { DB } from '../index.js';
+import type { ItemInsert } from './items.js';
 
 export type TaskRow = {
   id: number;
@@ -782,6 +783,38 @@ export class TaskQueries {
     } else {
       this.db.prepare(`UPDATE expected_receipt_task SET notification_error = ? WHERE id = ?`).run(result.error ?? 'unknown', id);
     }
+  }
+
+  // C1 fix: inserts task + items in a single SQLite transaction to prevent orphaned task rows
+  insertWithItems(input: TaskInsert, itemInserts: ItemInsert[]): number {
+    const insertTaskStmt = this.db.prepare(`
+      INSERT INTO expected_receipt_task
+        (created_by_username, created_by_eplant_id, assigned_to_employee_id,
+         assigned_to_username, assigned_to_email, assigned_to_name, date_from, date_to)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const insertItemStmt = this.db.prepare(`
+      INSERT INTO expected_receipt_item
+        (task_id, po_id, po_no, po_detail_id, po_release_id, promise_date, ar_invt_id,
+         item_class, item_no, item_rev, item_description, qty_expected, default_recv_designator)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const tx = this.db.transaction((task: TaskInsert, items: ItemInsert[]) => {
+      const res = insertTaskStmt.run(
+        task.createdByUsername, task.createdByEplantId, task.assignedToEmployeeId,
+        task.assignedToUsername, task.assignedToEmail, task.assignedToName,
+        task.dateFrom, task.dateTo,
+      );
+      const taskId = Number(res.lastInsertRowid);
+      for (const r of items) {
+        insertItemStmt.run(
+          taskId, r.poId, r.poNo, r.poDetailId, r.poReleaseId, r.promiseDate, r.arInvtId,
+          r.itemClass, r.itemNo, r.itemRev, r.itemDescription, r.qtyExpected, r.defaultRecvDesignator,
+        );
+      }
+      return taskId;
+    });
+    return tx(input, itemInserts);
   }
 }
 ```
@@ -920,8 +953,9 @@ export class ItemQueries {
     `).all(taskId) as ItemRow[];
   }
 
-  markReceived(id: number, r: ReceiptDetails): void {
-    this.db.prepare(`
+  // I1 fix: returns true if the row was updated (was pending), false if already received (race guard)
+  markReceived(id: number, r: ReceiptDetails): boolean {
+    const result = this.db.prepare(`
       UPDATE expected_receipt_item
       SET status = 'received',
           received_qty = ?, received_lot_no = ?, received_location_id = ?, received_location_name = ?,
@@ -929,9 +963,10 @@ export class ItemQueries {
           dw_receipt_id = ?, dw_master_label_id = ?,
           label_printed = ?, label_print_error = ?,
           error_message = NULL
-      WHERE id = ?
+      WHERE id = ? AND status = 'pending'
     `).run(r.qty, r.lotNo, r.locationId, r.locationName, r.dwReceiptId, r.dwMasterLabelId,
       r.labelPrinted ? 1 : 0, r.labelPrintError ?? null, id);
+    return result.changes > 0;
   }
 
   markFailed(id: number, errorMessage: string, partial?: Partial<ReceiptDetails>): void {
@@ -2430,7 +2465,8 @@ export function createTaskService(deps: {
 }) {
   return {
     async createTask(input: CreateTaskInput): Promise<{ taskId: number; itemCount: number }> {
-      const taskId = deps.tasks.insert({
+      // C1 fix: single atomic transaction — no orphaned task rows on crash
+      const taskId = deps.tasks.insertWithItems({
         createdByUsername: input.createdByUsername,
         createdByEplantId: input.createdByEplantId,
         assignedToEmployeeId: input.assignedTo.id,
@@ -2438,8 +2474,7 @@ export function createTaskService(deps: {
         assignedToEmail: input.assignedTo.email,
         assignedToName: input.assignedTo.name,
         dateFrom: input.dateFrom, dateTo: input.dateTo,
-      });
-      deps.items.bulkInsert(taskId, input.items);
+      }, input.items);
 
       if (input.assignedTo.email) {
         const r = await deps.mailer.sendTaskCreated({
@@ -2495,12 +2530,17 @@ export function createTaskService(deps: {
         logger.warn({ taskId: input.taskId, itemId: input.itemId, receiptId, masterLabelId, err: labelPrintError }, 'label.print.failed');
       }
 
-      deps.items.markReceived(input.itemId, {
+      // NOTE: A narrow race window exists where two concurrent requests could both reach DW
+      // before either writes back — resulting in duplicate DW receipts. The DB state remains
+      // consistent (only the first writer's row is accepted), but the DW double-post cannot
+      // be prevented without DW-side idempotency support. Document and monitor as known limitation.
+      const updated = deps.items.markReceived(input.itemId, {
         qty: input.input.qty, lotNo: input.input.lotNo,
         locationId: input.input.locationId, locationName: input.input.locationName,
         dwReceiptId: receiptId, dwMasterLabelId: masterLabelId,
         labelPrinted, labelPrintError,
       });
+      if (!updated) throw appError('ITEM_ALREADY_RECEIVED', 'item was concurrently received');
 
       const pending = deps.items.countPending(input.taskId);
       if (pending === 0) {

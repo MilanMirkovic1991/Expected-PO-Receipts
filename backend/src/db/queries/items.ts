@@ -73,8 +73,8 @@ export class ItemQueries {
     `).all(taskId) as ItemRow[];
   }
 
-  markReceived(id: number, r: ReceiptDetails): void {
-    this.db.prepare(`
+  markReceived(id: number, r: ReceiptDetails): boolean {
+    const result = this.db.prepare(`
       UPDATE expected_receipt_item
       SET status = 'received',
           received_qty = ?, received_lot_no = ?, received_location_id = ?, received_location_name = ?,
@@ -82,9 +82,10 @@ export class ItemQueries {
           dw_receipt_id = ?, dw_master_label_id = ?,
           label_printed = ?, label_print_error = ?,
           error_message = NULL
-      WHERE id = ?
+      WHERE id = ? AND status = 'pending'
     `).run(r.qty, r.lotNo, r.locationId, r.locationName, r.dwReceiptId, r.dwMasterLabelId,
       r.labelPrinted ? 1 : 0, r.labelPrintError ?? null, id);
+    return result.changes > 0;
   }
 
   markFailed(id: number, errorMessage: string, partial?: Partial<ReceiptDetails>): void {

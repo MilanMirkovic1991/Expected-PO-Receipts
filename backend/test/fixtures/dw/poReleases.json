@@ -1,0 +1,7 @@
+{
+  "data": [
+    { "Id": 100, "PODetailId": 10, "PurchaseOrderId": 1, "PurchaseOrderNo": "PO-1", "ArInvtId": 500, "Quantity": 100, "PromiseDate": "2026-05-28T00:00:00", "QtyReceived": 0 },
+    { "Id": 101, "PODetailId": 11, "PurchaseOrderId": 1, "PurchaseOrderNo": "PO-1", "ArInvtId": 501, "Quantity": 50, "PromiseDate": "2026-05-29T00:00:00", "QtyReceived": 50 },
+    { "Id": 102, "PODetailId": 12, "PurchaseOrderId": 2, "PurchaseOrderNo": "PO-2", "ArInvtId": 500, "Quantity": 80, "PromiseDate": "2026-05-28T00:00:00", "QtyReceived": 30 }
+  ]
+}

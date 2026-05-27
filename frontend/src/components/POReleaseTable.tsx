@@ -13,7 +13,7 @@ export function POReleaseTable({ groups }: { groups: ReleaseGroup[] }) {
       {groups.length === 0 && <p>No expected receipts in date range.</p>}
       {groups.map(g => {
         const ids = g.items.map(i => i.poReleaseId);
-        const allSelected = ids.every(id => selected.has(id));
+        const allSelected = ids.length > 0 && ids.every(id => selected.has(id));
         return (
           <DateGroup key={g.date} date={g.date}
             allSelected={allSelected}

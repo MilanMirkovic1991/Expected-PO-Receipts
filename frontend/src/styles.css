@@ -1,0 +1,5 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; color: #222; }
+.app { max-width: 1200px; margin: 0 auto; padding: 1rem; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: 0.5; }

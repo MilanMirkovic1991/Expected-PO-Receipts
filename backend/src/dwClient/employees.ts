@@ -1,5 +1,5 @@
 import { AxiosInstance } from 'axios';
-import { unwrap } from './shared.js';
+import { pickArray } from './shared.js';
 
 export type EmployeeRow = {
   id: number;
@@ -13,7 +13,7 @@ export function makeEmployeesApi(http: AxiosInstance) {
   return {
     async listTeamMembers(): Promise<EmployeeRow[]> {
       const res = await http.get('/TimeAttendance/Employees/TeamMember/0');
-      const rows = (unwrap<any[]>(res) ?? []) as any[];
+      const rows = pickArray<any>(res.data);
       return rows
         .filter(r => String(r.EmpStatus ?? '').toLowerCase() === 'active')
         .map(r => ({

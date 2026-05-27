@@ -1,6 +1,6 @@
 import { AxiosInstance } from 'axios';
 import { buildFilter } from './filter.js';
-import { unwrap } from './shared.js';
+import { pickArray } from './shared.js';
 import type { InventoryItem } from './inventory.js';
 import { logger } from '../logger.js';
 
@@ -38,7 +38,7 @@ export function makePOReleasesApi(http: AxiosInstance, inventory: InventoryApi) 
         EPlantId: input.eplantId,
       });
       const res = await http.get('/POReceiving/PO/POReleaseItems/0', { params: { filter, pageSize: 1000 } });
-      const raw = (unwrap<any[]>(res) ?? []) as any[];
+      const raw = pickArray<any>(res.data);
       if (raw.length >= 1000) {
         logger.warn({ count: raw.length, dateFrom: input.dateFrom, dateTo: input.dateTo, eplantId: input.eplantId },
           'poReleases: reached pageSize cap — results may be truncated');

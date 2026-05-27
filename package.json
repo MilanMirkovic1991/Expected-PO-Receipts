@@ -1,0 +1,14 @@
+{
+  "name": "expected-po-receipts",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Planner + warehouse worker app for DELMIAWORKS PO receipts",
+  "workspaces": ["backend", "frontend"],
+  "scripts": {
+    "dev:backend": "npm --workspace backend run dev",
+    "dev:frontend": "npm --workspace frontend run dev",
+    "build": "npm --workspace backend run build && npm --workspace frontend run build",
+    "test": "npm --workspace backend run test && npm --workspace frontend run test"
+  },
+  "engines": { "node": ">=20" }
+}

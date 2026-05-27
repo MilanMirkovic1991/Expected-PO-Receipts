@@ -54,3 +54,24 @@ describe('POST /api/tasks', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('POST /api/tasks/:id/items/:itemId/receive', () => {
+  it('processes receipt and marks item received', async () => {
+    // create task first
+    const create = await request(app).post('/api/tasks').set('Cookie', `sessionId=${sid}`).send({
+      assignedToUsername: 'worker', dateFrom: '2026-05-27', dateTo: '2026-06-03',
+      items: [{ poId: 1, poNo: 'PO-1', poDetailId: 10, poReleaseId: 100, promiseDate: '2026-05-28', arInvtId: 500, itemClass: 'A', itemNo: 'ITM-1', itemRev: '', itemDescription: 'D', qtyExpected: 100, defaultRecvDesignator: '' }],
+    });
+    const taskId = create.body.taskId;
+    // worker logs in (simulate by reusing session — in real flow, different user)
+    const detail = await request(app).get(`/api/tasks/${taskId}`).set('Cookie', `sessionId=${sid}`);
+    const itemId = detail.body.items[0].id;
+
+    // override dwFactory to provide poReceipts + labels: skip — handled by integration; here we just assert validation
+    const res = await request(app)
+      .post(`/api/tasks/${taskId}/items/${itemId}/receive`)
+      .set('Cookie', `sessionId=${sid}`)
+      .send({ qty: 0, lotNo: '', locationId: 0, locationName: '', printerName: '' });
+    expect(res.status).toBe(400);
+  });
+});

@@ -63,5 +63,35 @@ export function makeTasksRouter(deps: Deps) {
     res.json({ ok: true });
   });
 
+  router.post('/:id/items/:itemId/receive', async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      const itemId = Number(req.params.itemId);
+      const { qty, lotNo, locationId, locationName, printerName } = req.body ?? {};
+      if (!Number.isFinite(qty) || qty <= 0) { res.status(400).json({ error: 'INVALID_QTY' }); return; }
+      if (!lotNo) { res.status(400).json({ error: 'MISSING_LOT' }); return; }
+      if (!Number.isFinite(locationId) || locationId <= 0) { res.status(400).json({ error: 'MISSING_LOCATION' }); return; }
+      if (!printerName) { res.status(400).json({ error: 'MISSING_PRINTER' }); return; }
+
+      const t = deps.tasks.getById(id);
+      if (!t || t.assigned_to_username !== req.session!.username) { res.status(403).json({ error: 'FORBIDDEN' }); return; }
+
+      const dw = deps.dwFactory(req);
+      dw.setAuthToken(req.session!.authToken);
+      const out = await deps.service.receiveItem({
+        taskId: id, itemId, dw,
+        input: { qty: Number(qty), lotNo: String(lotNo), locationId: Number(locationId), locationName: String(locationName ?? ''), printerName: String(printerName) },
+        sessionUsername: req.session!.username,
+      });
+      res.json(out);
+    } catch (e: any) {
+      if (e?.code === 'ITEM_ALREADY_RECEIVED') { res.status(409).json({ error: 'ITEM_ALREADY_RECEIVED' }); return; }
+      if (e?.code === 'TASK_COMPLETED') { res.status(409).json({ error: 'TASK_COMPLETED' }); return; }
+      if (e?.code === 'INVALID_QTY') { res.status(400).json({ error: 'INVALID_QTY' }); return; }
+      if (e?.code === 'NOT_FOUND') { res.status(404).json({ error: 'NOT_FOUND' }); return; }
+      next(e);
+    }
+  });
+
   return router;
 }

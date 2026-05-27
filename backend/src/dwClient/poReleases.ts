@@ -2,6 +2,7 @@ import { AxiosInstance } from 'axios';
 import { buildFilter } from './filter.js';
 import { unwrap } from './shared.js';
 import type { InventoryItem } from './inventory.js';
+import { logger } from '../logger.js';
 
 export type POReleaseRow = {
   poReleaseId: number;
@@ -38,6 +39,10 @@ export function makePOReleasesApi(http: AxiosInstance, inventory: InventoryApi) 
       });
       const res = await http.get('/POReceiving/PO/POReleaseItems/0', { params: { filter, pageSize: 1000 } });
       const raw = (unwrap<any[]>(res) ?? []) as any[];
+      if (raw.length >= 1000) {
+        logger.warn({ count: raw.length, dateFrom: input.dateFrom, dateTo: input.dateTo, eplantId: input.eplantId },
+          'poReleases: reached pageSize cap — results may be truncated');
+      }
 
       const inRange = raw.filter(r => {
         const d = dateOnly(String(r.PromiseDate ?? ''));
@@ -47,12 +52,15 @@ export function makePOReleasesApi(http: AxiosInstance, inventory: InventoryApi) 
       if (open.length === 0) return [];
 
       const invIds = open.map(r => Number(r.ArInvtId));
-      const invMap = await inventory.batchGetByIds(invIds);
+      const uniqueIds = [...new Set(invIds)];
       const designators = new Map<number, string>();
-      await Promise.all([...new Set(invIds)].map(async id => {
-        const d = await inventory.getDefaultRecvDesignator(id);
-        if (d) designators.set(id, d);
-      }));
+      const [invMap] = await Promise.all([
+        inventory.batchGetByIds(invIds),
+        Promise.all(uniqueIds.map(async id => {
+          const d = await inventory.getDefaultRecvDesignator(id);
+          if (d) designators.set(id, d);
+        })),
+      ]);
 
       const rows: POReleaseRow[] = open.map(r => {
         const arInvtId = Number(r.ArInvtId);

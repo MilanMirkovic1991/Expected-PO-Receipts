@@ -1366,6 +1366,24 @@ describe('poReleases.listOpenByPromiseDate', () => {
     const groups = await dw.poReleases.listOpenByPromiseDate({ dateFrom: '2026-05-27', dateTo: '2026-06-03', eplantId: 1 });
     expect(groups).toEqual([]);
   });
+
+  it('client-side filters out items beyond dateTo (DW filter only enforces lower bound)', async () => {
+    nock(BASE).get(/POReleaseItems/).query(true).reply(200, { data: [
+      { Id: 300, PODetailId: 30, PurchaseOrderId: 7, PurchaseOrderNo: 'PO-7', ArInvtId: 700, Quantity: 25, QtyReceived: 0, PromiseDate: '2026-06-10T00:00:00' },
+      { Id: 301, PODetailId: 31, PurchaseOrderId: 7, PurchaseOrderNo: 'PO-7', ArInvtId: 700, Quantity: 25, QtyReceived: 0, PromiseDate: '2026-06-15T00:00:00' },
+    ] });
+    nock(BASE).get(/Inventory\/700/).reply(200, { data: { Id: 700, ItemNo: 'ITM-700', Rev: '', Description: 'X', Class: 'A', UOM: 'EA' } });
+    nock(BASE).get(/Locations\/0/).query(true).reply(200, { data: [] }).persist();
+
+    const dw = createDwClient({ baseUrl: BASE });
+    const groups = await dw.poReleases.listOpenByPromiseDate({
+      dateFrom: '2026-06-01', dateTo: '2026-06-12', eplantId: 1,
+    });
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.date).toBe('2026-06-10');
+    expect(groups[0]!.items).toHaveLength(1); // 06-15 trimmed
+  });
 });
 ```
 
@@ -1383,6 +1401,7 @@ import { AxiosInstance } from 'axios';
 import { buildFilter } from './filter.js';
 import { unwrap } from './shared.js';
 import type { InventoryItem } from './inventory.js';
+import { logger } from '../logger.js';
 
 export type POReleaseRow = {
   poReleaseId: number;
@@ -1419,6 +1438,10 @@ export function makePOReleasesApi(http: AxiosInstance, inventory: InventoryApi) 
       });
       const res = await http.get('/POReceiving/PO/POReleaseItems/0', { params: { filter, pageSize: 1000 } });
       const raw = (unwrap<any[]>(res) ?? []) as any[];
+      if (raw.length >= 1000) {
+        logger.warn({ count: raw.length, dateFrom: input.dateFrom, dateTo: input.dateTo, eplantId: input.eplantId },
+          'poReleases: reached pageSize cap — results may be truncated');
+      }
 
       const inRange = raw.filter(r => {
         const d = dateOnly(String(r.PromiseDate ?? ''));
@@ -1428,12 +1451,15 @@ export function makePOReleasesApi(http: AxiosInstance, inventory: InventoryApi) 
       if (open.length === 0) return [];
 
       const invIds = open.map(r => Number(r.ArInvtId));
-      const invMap = await inventory.batchGetByIds(invIds);
+      const uniqueIds = [...new Set(invIds)];
       const designators = new Map<number, string>();
-      await Promise.all([...new Set(invIds)].map(async id => {
-        const d = await inventory.getDefaultRecvDesignator(id);
-        if (d) designators.set(id, d);
-      }));
+      const [invMap] = await Promise.all([
+        inventory.batchGetByIds(invIds),
+        Promise.all(uniqueIds.map(async id => {
+          const d = await inventory.getDefaultRecvDesignator(id);
+          if (d) designators.set(id, d);
+        })),
+      ]);
 
       const rows: POReleaseRow[] = open.map(r => {
         const arInvtId = Number(r.ArInvtId);

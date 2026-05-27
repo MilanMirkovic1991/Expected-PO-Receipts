@@ -27,7 +27,7 @@ export function POReleaseTable({ groups }: { groups: ReleaseGroup[] }) {
                   <tr key={i.poReleaseId}>
                     <td>
                       <input type="checkbox"
-                        aria-label="select item"
+                        aria-label={`select item ${i.itemNo}`}
                         checked={selected.has(i.poReleaseId)}
                         onChange={() => toggle(i.poReleaseId)} />
                     </td>

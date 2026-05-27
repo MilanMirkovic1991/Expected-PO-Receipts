@@ -3,6 +3,8 @@ import { makeAuthApi } from './auth.js';
 import { makeEPlantsApi } from './eplants.js';
 import { makeInventoryApi } from './inventory.js';
 import { makePOReleasesApi } from './poReleases.js';
+import { makePOReceiptsApi } from './poReceipts.js';
+import { makeLabelsApi } from './labels.js';
 import { DwClientConfig } from './types.js';
 
 export function createDwClient(cfg: DwClientConfig) {
@@ -19,6 +21,8 @@ export function createDwClient(cfg: DwClientConfig) {
     eplants: makeEPlantsApi(http),
     inventory,
     poReleases: makePOReleasesApi(http, inventory),
+    poReceipts: makePOReceiptsApi(http),
+    labels: makeLabelsApi(http),
     http,
   };
 }

@@ -2,7 +2,7 @@ import { api } from './client.js';
 import type { TaskSummary, TaskDetail } from '../types.js';
 
 export type CreateTaskInput = {
-  assignedToUsername: string;
+  assignedToEmployeeId: number;
   dateFrom: string;
   dateTo: string;
   items: Array<{
@@ -10,6 +10,7 @@ export type CreateTaskInput = {
     promiseDate: string; arInvtId: number;
     itemClass: string; itemNo: string; itemRev: string; itemDescription: string;
     qtyExpected: number; defaultRecvDesignator: string;
+    vendorId?: number; vendorNo?: string; vendorName?: string;
   }>;
 };
 

@@ -43,6 +43,7 @@ export function POReleaseTable({ groups }: { groups: ReleaseGroup[] }) {
                   <th>Description</th>
                   <th style={{ textAlign: 'right' }}>Qty</th>
                   <th>PO</th>
+                  <th>Vendor</th>
                   <th>Recv Designator</th>
                 </tr>
               </thead>
@@ -62,9 +63,17 @@ export function POReleaseTable({ groups }: { groups: ReleaseGroup[] }) {
                       <td>{i.itemClass || <span className="dim">—</span>}</td>
                       <td><span className="mono" style={{ fontWeight: 600 }}>{i.itemNo}</span></td>
                       <td>{i.itemRev || <span className="dim">—</span>}</td>
-                      <td>{i.itemDescription}</td>
+                      <td>{i.itemDescription || <span className="dim">—</span>}</td>
                       <td className="table__qty" style={{ textAlign: 'right' }}>{i.qtyExpected}</td>
                       <td><span className="mono dim">{i.poNo}</span></td>
+                      <td>
+                        {i.vendorName
+                          ? <>
+                              <strong>{i.vendorName}</strong>
+                              {i.vendorNo && <div className="dim mono" style={{ fontSize: '0.75rem' }}>{i.vendorNo}</div>}
+                            </>
+                          : <span className="dim">—</span>}
+                      </td>
                       <td>{i.defaultRecvDesignator || <span className="dim">default</span>}</td>
                     </tr>
                   );

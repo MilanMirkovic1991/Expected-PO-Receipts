@@ -15,31 +15,40 @@ export function makeTasksRouter(deps: Deps) {
 
   router.post('/', async (req, res, next) => {
     try {
-      const { assignedToUsername, dateFrom, dateTo, items } = req.body ?? {};
-      if (!assignedToUsername || !dateFrom || !dateTo || !Array.isArray(items) || items.length === 0) {
+      const { assignedToEmployeeId, dateFrom, dateTo, items } = req.body ?? {};
+      const empId = Number(assignedToEmployeeId);
+      if (!Number.isFinite(empId) || empId <= 0 || !dateFrom || !dateTo || !Array.isArray(items) || items.length === 0) {
         res.status(400).json({ error: 'MISSING_FIELDS' });
         return;
       }
       const dw = deps.dwFactory(req);
       dw.setAuthToken(req.session!.authToken);
-      const employee = await dw.employees.getByUsername(assignedToUsername);
+      const employee = await dw.employees.getById(empId);
       if (!employee) { res.status(400).json({ error: 'UNKNOWN_EMPLOYEE' }); return; }
 
       const out = await deps.service.createTask({
         createdByUsername: req.session!.username,
         createdByEplantId: req.session!.eplantId,
-        assignedTo: { id: employee.id, username: employee.username, email: employee.email, name: employee.displayName },
+        assignedTo: { id: employee.id, username: employee.username || employee.empNo, email: employee.email, name: employee.displayName },
         dateFrom, dateTo, items,
       });
       res.json(out);
     } catch (e) { next(e); }
   });
 
-  router.get('/', (req, res) => {
-    const rows = deps.tasks.listMine(req.session!.username);
+  /**
+   * GET /api/tasks
+   * Returns every open/in-progress task. Because PR_EMP has no UserName column,
+   * we can't reliably map session.username to an assignee. Until we have that
+   * mapping the receiving page is shared — every signed-in user sees all open tasks
+   * and the assignee name is shown so they know which is theirs.
+   */
+  router.get('/', (_req, res) => {
+    const rows = deps.tasks.listAllOpen();
     res.json({ tasks: rows.map(r => ({
       id: r.id, status: r.status, createdAt: r.created_at,
       createdBy: r.created_by_username, dateFrom: r.date_from, dateTo: r.date_to,
+      assignedToName: r.assigned_to_name, assignedToBadge: r.assigned_to_username,
     })) });
   });
 
@@ -47,9 +56,7 @@ export function makeTasksRouter(deps: Deps) {
     const id = Number(req.params.id);
     const t = deps.tasks.getById(id);
     if (!t) { res.status(404).json({ error: 'NOT_FOUND' }); return; }
-    if (t.assigned_to_username !== req.session!.username && t.created_by_username !== req.session!.username) {
-      res.status(403).json({ error: 'FORBIDDEN' }); return;
-    }
+    // Authorization is intentionally permissive — see GET /api/tasks above.
     res.json({ task: t, items: deps.items.listByTask(id) });
   });
 
@@ -74,7 +81,9 @@ export function makeTasksRouter(deps: Deps) {
       if (!printerName) { res.status(400).json({ error: 'MISSING_PRINTER' }); return; }
 
       const t = deps.tasks.getById(id);
-      if (!t || t.assigned_to_username !== req.session!.username) { res.status(403).json({ error: 'FORBIDDEN' }); return; }
+      // Permissive: any signed-in user can receive against a task (PR_EMP↔login mapping unavailable).
+      if (!t) { res.status(404).json({ error: 'NOT_FOUND' }); return; }
+      if (t.status === 'completed' || t.status === 'cancelled') { res.status(409).json({ error: `TASK_${t.status.toUpperCase()}` }); return; }
 
       const dw = deps.dwFactory(req);
       dw.setAuthToken(req.session!.authToken);

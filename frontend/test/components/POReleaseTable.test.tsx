@@ -8,8 +8,8 @@ beforeEach(() => usePlanning.getState().reset());
 
 const groups = [{
   date: '2026-05-28', items: [
-    { poReleaseId: 100, poDetailId: 10, poId: 1, poNo: 'PO-1', arInvtId: 500, itemClass: 'A', itemNo: 'ITM-1', itemRev: 'R1', itemDescription: 'D1', qtyExpected: 100, promiseDate: '2026-05-28', defaultRecvDesignator: 'DEFAULT' },
-    { poReleaseId: 101, poDetailId: 11, poId: 1, poNo: 'PO-1', arInvtId: 501, itemClass: 'B', itemNo: 'ITM-2', itemRev: '', itemDescription: 'D2', qtyExpected: 50, promiseDate: '2026-05-28', defaultRecvDesignator: 'ZONE-A' },
+    { poReleaseId: 100, poDetailId: 10, poId: 1, poNo: 'PO-1', vendorId: 99, vendorNo: 'V-99', vendorName: 'Acme', arInvtId: 500, itemClass: 'A', itemNo: 'ITM-1', itemRev: 'R1', itemDescription: 'D1', qtyExpected: 100, promiseDate: '2026-05-28', defaultRecvDesignator: 'DEFAULT' },
+    { poReleaseId: 101, poDetailId: 11, poId: 1, poNo: 'PO-1', vendorId: 99, vendorNo: 'V-99', vendorName: 'Acme', arInvtId: 501, itemClass: 'B', itemNo: 'ITM-2', itemRev: '', itemDescription: 'D2', qtyExpected: 50, promiseDate: '2026-05-28', defaultRecvDesignator: 'ZONE-A' },
   ],
 }];
 

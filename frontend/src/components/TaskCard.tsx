@@ -30,6 +30,12 @@ export function TaskCard({ task }: { task: TaskSummary }) {
         </div>
         <div className="card__meta">
           <div><strong className="muted">From:</strong> {task.createdBy}</div>
+          {task.assignedToName && (
+            <div>
+              <strong className="muted">Assigned to:</strong> {task.assignedToName}
+              {task.assignedToBadge && <span className="dim mono"> ({task.assignedToBadge})</span>}
+            </div>
+          )}
           <div><strong className="muted">Period:</strong> {task.dateFrom} → {task.dateTo}</div>
         </div>
         <div className="row row--end">

@@ -17,7 +17,7 @@ function wrap(children: React.ReactNode) {
   return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
 }
 
-const item = { id: 1, task_id: 1, po_no: 'PO-1', po_detail_id: 10, po_release_id: 100, promise_date: '2026-05-28', ar_invt_id: 500, item_class: 'A', item_no: 'ITM-1', item_rev: 'R1', item_description: 'D', qty_expected: 100, default_recv_designator: 'DEFAULT', status: 'pending' as const, received_qty: null, received_lot_no: null, received_location_id: null, received_location_name: null, received_at: null, dw_receipt_id: null, label_printed: 0, label_print_error: null, error_message: null };
+const item = { id: 1, task_id: 1, po_no: 'PO-1', po_detail_id: 10, po_release_id: 100, promise_date: '2026-05-28', ar_invt_id: 500, item_class: 'A', item_no: 'ITM-1', item_rev: 'R1', item_description: 'D', qty_expected: 100, default_recv_designator: 'DEFAULT', vendor_id: 99, vendor_no: 'V-99', vendor_name: 'Acme', status: 'pending' as const, received_qty: null, received_lot_no: null, received_location_id: null, received_location_name: null, received_at: null, dw_receipt_id: null, dw_master_label_id: null, label_printed: 0, label_print_error: null, error_message: null };
 
 describe('ReceiveItemForm', () => {
   it('disables Receive when fields missing', () => {

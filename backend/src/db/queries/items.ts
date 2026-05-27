@@ -15,6 +15,9 @@ export type ItemRow = {
   item_description: string | null;
   qty_expected: number;
   default_recv_designator: string | null;
+  vendor_id: number | null;
+  vendor_no: string | null;
+  vendor_name: string | null;
   status: 'pending' | 'received' | 'failed';
   received_qty: number | null;
   received_lot_no: string | null;
@@ -33,6 +36,7 @@ export type ItemInsert = {
   promiseDate: string; arInvtId: number;
   itemClass: string; itemNo: string; itemRev: string; itemDescription: string;
   qtyExpected: number; defaultRecvDesignator: string;
+  vendorId?: number; vendorNo?: string; vendorName?: string;
 };
 
 export type ReceiptDetails = {
@@ -49,13 +53,15 @@ export class ItemQueries {
     const stmt = this.db.prepare(`
       INSERT INTO expected_receipt_item
         (task_id, po_id, po_no, po_detail_id, po_release_id, promise_date, ar_invt_id,
-         item_class, item_no, item_rev, item_description, qty_expected, default_recv_designator)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         item_class, item_no, item_rev, item_description, qty_expected, default_recv_designator,
+         vendor_id, vendor_no, vendor_name)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const tx = this.db.transaction((items: ItemInsert[]) => {
       for (const r of items) {
         stmt.run(taskId, r.poId, r.poNo, r.poDetailId, r.poReleaseId, r.promiseDate, r.arInvtId,
-          r.itemClass, r.itemNo, r.itemRev, r.itemDescription, r.qtyExpected, r.defaultRecvDesignator);
+          r.itemClass, r.itemNo, r.itemRev, r.itemDescription, r.qtyExpected, r.defaultRecvDesignator,
+          r.vendorId ?? null, r.vendorNo ?? null, r.vendorName ?? null);
       }
     });
     tx(rows);

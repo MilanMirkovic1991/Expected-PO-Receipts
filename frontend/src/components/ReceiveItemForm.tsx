@@ -51,6 +51,13 @@ export function ReceiveItemForm({ item, onReceive, submitting }: { item: TaskIte
             </>
           )}
         </div>
+        {item.vendor_name && (
+          <div style={{ marginTop: '0.35rem' }}>
+            <span className="dim">🏢 Vendor: </span>
+            <strong>{item.vendor_name}</strong>
+            {item.vendor_no && <span className="dim mono"> ({item.vendor_no})</span>}
+          </div>
+        )}
       </div>
 
       <div className="grid-form">

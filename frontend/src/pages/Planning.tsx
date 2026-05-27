@@ -12,8 +12,8 @@ export function Planning() {
   const dateFrom = usePlanning(s => s.dateFrom);
   const dateTo = usePlanning(s => s.dateTo);
   const selected = usePlanning(s => s.selected);
-  const assignedUsername = usePlanning(s => s.assignedUsername);
-  const setAssignedUsername = usePlanning(s => s.setAssignedUsername);
+  const assignedEmployeeId = usePlanning(s => s.assignedEmployeeId);
+  const setAssignedEmployeeId = usePlanning(s => s.setAssignedEmployeeId);
   const reset = usePlanning(s => s.reset);
   const [toast, setToast] = useState<{ kind: 'success' | 'danger'; message: string } | null>(null);
 
@@ -29,12 +29,13 @@ export function Planning() {
     mutationFn: () => {
       const flat = releases.data?.groups.flatMap(g => g.items.filter(i => selected.has(i.poReleaseId))) ?? [];
       return tasksApi.create({
-        assignedToUsername: assignedUsername, dateFrom, dateTo,
+        assignedToEmployeeId: assignedEmployeeId, dateFrom, dateTo,
         items: flat.map(i => ({
           poId: i.poId, poNo: i.poNo, poDetailId: i.poDetailId, poReleaseId: i.poReleaseId,
           promiseDate: i.promiseDate, arInvtId: i.arInvtId,
           itemClass: i.itemClass, itemNo: i.itemNo, itemRev: i.itemRev, itemDescription: i.itemDescription,
           qtyExpected: i.qtyExpected, defaultRecvDesignator: i.defaultRecvDesignator,
+          vendorId: i.vendorId, vendorNo: i.vendorNo, vendorName: i.vendorName,
         })),
       });
     },
@@ -42,11 +43,13 @@ export function Planning() {
       setToast({ kind: 'success', message: `Task #${data.taskId} created with ${data.itemCount} item${data.itemCount !== 1 ? 's' : ''}.` });
       reset();
       qc.invalidateQueries({ queryKey: ['poReleases'] });
+      qc.invalidateQueries({ queryKey: ['tasks', 'mine'] });
     },
     onError: (e: any) => setToast({ kind: 'danger', message: `Error: ${e?.message ?? 'unknown'}` }),
   });
 
   const totalItems = releases.data?.groups.reduce((sum, g) => sum + g.items.length, 0) ?? 0;
+  const selectedEmployee = employees.data?.employees.find(e => e.id === assignedEmployeeId);
 
   return (
     <div className="app">
@@ -92,16 +95,28 @@ export function Planning() {
           {selected.size === 0
             ? <>Select one or more items to generate a task.</>
             : <><strong>{selected.size}</strong> item{selected.size !== 1 ? 's' : ''} selected</>}
+          {selectedEmployee && (
+            <span> · assigning to <strong>{selectedEmployee.displayName}</strong>
+              {selectedEmployee.empNo && <span className="dim"> ({selectedEmployee.empNo})</span>}
+            </span>
+          )}
         </div>
-        <select value={assignedUsername} onChange={e => setAssignedUsername(e.target.value)} style={{ width: 240 }}>
+        <select
+          value={assignedEmployeeId || ''}
+          onChange={e => setAssignedEmployeeId(Number(e.target.value))}
+          style={{ width: 280 }}
+          disabled={employees.isLoading}
+        >
           <option value="">👤 Assign to…</option>
           {employees.data?.employees.map(e => (
-            <option key={e.id} value={e.username}>{e.displayName} ({e.username})</option>
+            <option key={e.id} value={e.id}>
+              {e.displayName}{e.empNo ? ` (${e.empNo})` : ''}{e.department ? ` — ${e.department}` : ''}
+            </option>
           ))}
         </select>
         <button
           className="btn btn--primary"
-          disabled={selected.size === 0 || !assignedUsername || create.isPending}
+          disabled={selected.size === 0 || !assignedEmployeeId || create.isPending}
           onClick={() => create.mutate()}
         >
           {create.isPending ? <><span className="spinner" /> Creating…</> : <>📨 Generate Expected POs</>}

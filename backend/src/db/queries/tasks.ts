@@ -60,6 +60,20 @@ export class TaskQueries {
     `).all(username) as TaskRow[];
   }
 
+  /**
+   * All open/in-progress tasks regardless of assignee.
+   * PR_EMP has no UserName column so we cannot link a logged-in DW user to
+   * a specific assignee record. Until we have that mapping, the Receiving
+   * page shows every active task to anyone signed in.
+   */
+  listAllOpen(): TaskRow[] {
+    return this.db.prepare(`
+      SELECT * FROM expected_receipt_task
+      WHERE status IN ('open','in_progress')
+      ORDER BY created_at DESC
+    `).all() as TaskRow[];
+  }
+
   updateStatus(id: number, status: TaskRow['status']): void {
     const col = status === 'completed' ? 'completed_at' : status === 'cancelled' ? 'cancelled_at' : null;
     if (col) {
@@ -87,8 +101,9 @@ export class TaskQueries {
     const insertItemStmt = this.db.prepare(`
       INSERT INTO expected_receipt_item
         (task_id, po_id, po_no, po_detail_id, po_release_id, promise_date, ar_invt_id,
-         item_class, item_no, item_rev, item_description, qty_expected, default_recv_designator)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         item_class, item_no, item_rev, item_description, qty_expected, default_recv_designator,
+         vendor_id, vendor_no, vendor_name)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const tx = this.db.transaction((task: TaskInsert, items: ItemInsert[]) => {
       const res = insertTaskStmt.run(
@@ -101,6 +116,7 @@ export class TaskQueries {
         insertItemStmt.run(
           taskId, r.poId, r.poNo, r.poDetailId, r.poReleaseId, r.promiseDate, r.arInvtId,
           r.itemClass, r.itemNo, r.itemRev, r.itemDescription, r.qtyExpected, r.defaultRecvDesignator,
+          r.vendorId ?? null, r.vendorNo ?? null, r.vendorName ?? null,
         );
       }
       return taskId;

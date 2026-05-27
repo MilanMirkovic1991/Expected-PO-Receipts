@@ -18,8 +18,8 @@ describe('planning store', () => {
     expect(usePlanning.getState().isSelected(2)).toBe(false);
   });
 
-  it('stores assigned employee username', () => {
-    usePlanning.getState().setAssignedUsername('worker');
-    expect(usePlanning.getState().assignedUsername).toBe('worker');
+  it('stores assigned employee id', () => {
+    usePlanning.getState().setAssignedEmployeeId(42);
+    expect(usePlanning.getState().assignedEmployeeId).toBe(42);
   });
 });

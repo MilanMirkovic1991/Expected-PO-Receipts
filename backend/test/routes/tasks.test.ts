@@ -30,17 +30,28 @@ beforeEach(() => {
     service: svc, tasks, items,
     dwFactory: () => ({
       setAuthToken: vi.fn(),
-      employees: { getByUsername: vi.fn().mockResolvedValue({ id: 42, username: 'worker', email: 'w@x', displayName: 'Worker', badge: '002' }) },
+      employees: {
+        getById: vi.fn().mockResolvedValue({ id: 42, empNo: '002', username: '002', email: '', displayName: 'Worker', badge: '002' }),
+      },
     }),
   }));
   app.use(errorHandler);
 });
 
+const itemFixture = {
+  poId: 1, poNo: 'PO-1', poDetailId: 10, poReleaseId: 100,
+  promiseDate: '2026-05-28', arInvtId: 500,
+  itemClass: 'A', itemNo: 'ITM-1', itemRev: '', itemDescription: 'D',
+  qtyExpected: 100, defaultRecvDesignator: '',
+  vendorId: 99, vendorNo: 'V-99', vendorName: 'Acme Co',
+};
+
 describe('POST /api/tasks', () => {
-  it('creates task and returns taskId', async () => {
+  it('creates task by PR_EMP id and returns taskId', async () => {
     const res = await request(app).post('/api/tasks').set('Cookie', `sessionId=${sid}`).send({
-      assignedToUsername: 'worker', dateFrom: '2026-05-27', dateTo: '2026-06-03',
-      items: [{ poId: 1, poNo: 'PO-1', poDetailId: 10, poReleaseId: 100, promiseDate: '2026-05-28', arInvtId: 500, itemClass: 'A', itemNo: 'ITM-1', itemRev: '', itemDescription: 'D', qtyExpected: 100, defaultRecvDesignator: '' }],
+      assignedToEmployeeId: 42,
+      dateFrom: '2026-05-27', dateTo: '2026-06-03',
+      items: [itemFixture],
     });
     expect(res.status).toBe(200);
     expect(res.body.taskId).toBeTypeOf('number');
@@ -49,25 +60,43 @@ describe('POST /api/tasks', () => {
 
   it('returns 400 if items empty', async () => {
     const res = await request(app).post('/api/tasks').set('Cookie', `sessionId=${sid}`).send({
-      assignedToUsername: 'worker', dateFrom: '2026-05-27', dateTo: '2026-06-03', items: [],
+      assignedToEmployeeId: 42, dateFrom: '2026-05-27', dateTo: '2026-06-03', items: [],
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 if assignedToEmployeeId is missing', async () => {
+    const res = await request(app).post('/api/tasks').set('Cookie', `sessionId=${sid}`).send({
+      dateFrom: '2026-05-27', dateTo: '2026-06-03', items: [itemFixture],
     });
     expect(res.status).toBe(400);
   });
 });
 
+describe('GET /api/tasks (all open, permissive)', () => {
+  it('returns every open/in-progress task regardless of user', async () => {
+    await request(app).post('/api/tasks').set('Cookie', `sessionId=${sid}`).send({
+      assignedToEmployeeId: 42, dateFrom: '2026-05-27', dateTo: '2026-06-03', items: [itemFixture],
+    });
+    const res = await request(app).get('/api/tasks').set('Cookie', `sessionId=${sid}`);
+    expect(res.status).toBe(200);
+    expect(res.body.tasks).toHaveLength(1);
+    expect(res.body.tasks[0]).toMatchObject({
+      assignedToName: 'Worker',
+      assignedToBadge: '002',
+    });
+  });
+});
+
 describe('POST /api/tasks/:id/items/:itemId/receive', () => {
-  it('processes receipt and marks item received', async () => {
-    // create task first
+  it('returns 400 on empty receive payload', async () => {
     const create = await request(app).post('/api/tasks').set('Cookie', `sessionId=${sid}`).send({
-      assignedToUsername: 'worker', dateFrom: '2026-05-27', dateTo: '2026-06-03',
-      items: [{ poId: 1, poNo: 'PO-1', poDetailId: 10, poReleaseId: 100, promiseDate: '2026-05-28', arInvtId: 500, itemClass: 'A', itemNo: 'ITM-1', itemRev: '', itemDescription: 'D', qtyExpected: 100, defaultRecvDesignator: '' }],
+      assignedToEmployeeId: 42, dateFrom: '2026-05-27', dateTo: '2026-06-03', items: [itemFixture],
     });
     const taskId = create.body.taskId;
-    // worker logs in (simulate by reusing session — in real flow, different user)
     const detail = await request(app).get(`/api/tasks/${taskId}`).set('Cookie', `sessionId=${sid}`);
     const itemId = detail.body.items[0].id;
 
-    // override dwFactory to provide poReceipts + labels: skip — handled by integration; here we just assert validation
     const res = await request(app)
       .post(`/api/tasks/${taskId}/items/${itemId}/receive`)
       .set('Cookie', `sessionId=${sid}`)

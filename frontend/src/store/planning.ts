@@ -9,7 +9,7 @@ type State = {
   dateTo: string;
   nextDays: number;
   selected: Set<number>;
-  assignedUsername: string;
+  assignedEmployeeId: number;
   setMode: (m: Mode) => void;
   setDateFrom: (s: string) => void;
   setDateTo: (s: string) => void;
@@ -18,7 +18,7 @@ type State = {
   isSelected: (id: number) => boolean;
   selectAll: (ids: number[]) => void;
   deselectAll: (ids: number[]) => void;
-  setAssignedUsername: (u: string) => void;
+  setAssignedEmployeeId: (id: number) => void;
   reset: () => void;
 };
 
@@ -29,10 +29,12 @@ function plusDays(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// NOTE: `selected` (Set) and `assignedEmployeeId` are intentionally excluded from `partialize`.
+// Sets are not JSON-serializable for localStorage and the assignment is a per-session choice.
 export const usePlanning = create<State>()(
   persist((set, get) => ({
     mode: 'range', dateFrom: today(), dateTo: plusDays(today(), 14), nextDays: 14,
-    selected: new Set(), assignedUsername: '',
+    selected: new Set(), assignedEmployeeId: 0,
     setMode: m => set({ mode: m }),
     setDateFrom: s => set({ dateFrom: s }),
     setDateTo: s => set({ dateTo: s }),
@@ -41,8 +43,8 @@ export const usePlanning = create<State>()(
     isSelected: id => get().selected.has(id),
     selectAll: ids => { const s = new Set(get().selected); ids.forEach(i => s.add(i)); set({ selected: s }); },
     deselectAll: ids => { const s = new Set(get().selected); ids.forEach(i => s.delete(i)); set({ selected: s }); },
-    setAssignedUsername: u => set({ assignedUsername: u }),
-    reset: () => set({ selected: new Set(), assignedUsername: '' }),
+    setAssignedEmployeeId: id => set({ assignedEmployeeId: id }),
+    reset: () => set({ selected: new Set(), assignedEmployeeId: 0 }),
   }), {
     name: 'epr-planning',
     partialize: (s) => ({ mode: s.mode, dateFrom: s.dateFrom, dateTo: s.dateTo, nextDays: s.nextDays }),

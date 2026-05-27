@@ -7,6 +7,7 @@ import { makePOReceiptsApi } from './poReceipts.js';
 import { makeLabelsApi } from './labels.js';
 import { makeEmployeesApi } from './employees.js';
 import { makeLocationsApi } from './locations.js';
+import { makeVendorsApi } from './vendors.js';
 import { DwClientConfig } from './types.js';
 
 export function createDwClient(cfg: DwClientConfig) {
@@ -17,12 +18,14 @@ export function createDwClient(cfg: DwClientConfig) {
     return req;
   });
   const inventory = makeInventoryApi(http);
+  const vendors = makeVendorsApi(http);
   return {
     setAuthToken(token: string) { authToken.value = token; },
     auth: makeAuthApi(http),
     eplants: makeEPlantsApi(http),
     inventory,
-    poReleases: makePOReleasesApi(http, inventory),
+    vendors,
+    poReleases: makePOReleasesApi(http, inventory, vendors),
     poReceipts: makePOReceiptsApi(http),
     labels: makeLabelsApi(http),
     employees: makeEmployeesApi(http),

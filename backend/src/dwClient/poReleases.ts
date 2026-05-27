@@ -2,6 +2,7 @@ import { AxiosInstance } from 'axios';
 import { buildFilter } from './filter.js';
 import { pickArray } from './shared.js';
 import type { InventoryItem } from './inventory.js';
+import type { VendorRow } from './vendors.js';
 import { logger } from '../logger.js';
 
 export type POReleaseRow = {
@@ -9,6 +10,9 @@ export type POReleaseRow = {
   poDetailId: number;
   poId: number;
   poNo: string;
+  vendorId: number;
+  vendorNo: string;
+  vendorName: string;
   arInvtId: number;
   itemClass: string;
   itemNo: string;
@@ -26,14 +30,14 @@ type InventoryApi = {
   getDefaultRecvDesignator(arInvtId: number): Promise<string | null>;
 };
 
+type VendorsApi = {
+  batchGetByIds(ids: number[]): Promise<Map<number, VendorRow>>;
+};
+
 function dateOnly(iso: string): string {
   return iso.slice(0, 10);
 }
 
-/**
- * Run `fn` over `items` with at most `concurrency` in flight at a time.
- * Preserves input order in the output.
- */
 async function mapConcurrent<T, R>(items: T[], concurrency: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
   const results: R[] = new Array(items.length);
   let cursor = 0;
@@ -48,35 +52,26 @@ async function mapConcurrent<T, R>(items: T[], concurrency: number, fn: (item: T
   return results;
 }
 
-// PO header statuses that mean "do not show its releases"
 const CLOSED_STATUSES = new Set(['CLOSED', 'CANCELLED', 'CANCELED', 'VOID', 'VOIDED', 'DELETED']);
 
-export function makePOReleasesApi(http: AxiosInstance, inventory: InventoryApi) {
+export function makePOReleasesApi(http: AxiosInstance, inventory: InventoryApi, vendors: VendorsApi) {
   return {
     /**
      * List open PO release items in a Promise Date range, grouped by date.
+     * Each row is enriched with vendor (from VendorId on the PO header) and
+     * inventory description.
      *
-     * The DW WebAPI has no single endpoint that lists release items by Promise Date.
-     * The PO_RELEASES rows are reachable only nested inside PurchaseOrder responses.
-     * So the flow is:
-     *   1. List PO summaries for the EPlant.
-     *   2. For each PO, fetch the full nested structure via PurchaseOrder/0?poNo=...
-     *   3. Skip POs with closed/cancelled/voided header status.
-     *   4. Flatten the PODetails / POReleases tree.
-     *   5. Keep releases whose PromiseDate lands in [dateFrom, dateTo].
-     *   6. For each unique PODetail, fetch receipts and subtract them per release.
-     *   7. Enrich items with Inventory data (description) and group by PromiseDate.
+     * See the README and design spec for the underlying multi-step flow.
      */
     async listOpenByPromiseDate(input: { dateFrom: string; dateTo: string; eplantId: number }): Promise<ReleaseGroup[]> {
-      // --- Step 1: list PO summaries in this EPlant ---
+      // --- 1. PO summaries in this EPlant ---
       const filter = buildFilter({ EplantId: input.eplantId });
       const summaryRes = await http.get('/POReceiving/PO/POs/0', { params: { filter, pageSize: 1000 } });
       const summaries = pickArray<any>(summaryRes.data);
-      logger.info({ eplantId: input.eplantId, poCount: summaries.length, sample: summaries[0]?.PONo }, 'poReleases: PO summaries fetched');
-
+      logger.info({ eplantId: input.eplantId, poCount: summaries.length }, 'poReleases: PO summaries fetched');
       if (summaries.length === 0) return [];
 
-      // --- Step 2: fetch each PO's nested structure ---
+      // --- 2. Fetch each PO's nested structure ---
       const poNumbers = summaries.map(p => String(p.PONo ?? '')).filter(Boolean);
       const fullPOs = await mapConcurrent(poNumbers, 5, async (poNo) => {
         try {
@@ -88,9 +83,10 @@ export function makePOReleasesApi(http: AxiosInstance, inventory: InventoryApi) 
         }
       });
 
-      // --- Step 3-5: walk tree, filter status, filter date range ---
+      // --- 3-5. Walk, filter status, filter date range ---
       type Raw = {
         poReleaseId: number; poDetailId: number; poId: number; poNo: string;
+        vendorId: number; vendorNo: string;
         arInvtId: number; itemClass: string; itemNo: string; itemRev: string;
         qty: number; promiseDate: string;
       };
@@ -100,6 +96,9 @@ export function makePOReleasesApi(http: AxiosInstance, inventory: InventoryApi) 
         if (!po) continue;
         const status = String(po.Status ?? '').toUpperCase().trim();
         if (CLOSED_STATUSES.has(status)) { skippedByStatus++; continue; }
+
+        const vendorId = Number(po.VendorId ?? 0);
+        const vendorNo = String(po.VendorNo ?? '');
 
         const details: any[] = Array.isArray(po.PODetails) ? po.PODetails : [];
         for (const detail of details) {
@@ -112,6 +111,7 @@ export function makePOReleasesApi(http: AxiosInstance, inventory: InventoryApi) 
               poDetailId: Number(detail.Id),
               poId: Number(po.Id),
               poNo: String(po.PONo ?? ''),
+              vendorId, vendorNo,
               arInvtId: Number(detail.ArInvtId ?? 0),
               itemClass: String(detail.ItemClass ?? ''),
               itemNo: String(detail.ItemNo ?? ''),
@@ -123,10 +123,9 @@ export function makePOReleasesApi(http: AxiosInstance, inventory: InventoryApi) 
         }
       }
       logger.info({ skippedByStatus, rawCount: raw.length }, 'poReleases: tree flattened');
-
       if (raw.length === 0) return [];
 
-      // --- Step 6: per-PODetail receipts → subtract per release ---
+      // --- 6. Per-PODetail receipts ---
       const detailIds = [...new Set(raw.map(r => r.poDetailId))];
       const receiptsByRelease = new Map<number, number>();
       await mapConcurrent(detailIds, 5, async (detailId) => {
@@ -144,25 +143,31 @@ export function makePOReleasesApi(http: AxiosInstance, inventory: InventoryApi) 
         }
       });
 
-      // Compute remaining qty per release; keep only releases with qty > 0
       const open = raw
         .map(r => ({ ...r, qtyExpected: r.qty - (receiptsByRelease.get(r.poReleaseId) ?? 0) }))
         .filter(r => r.qtyExpected > 0);
       logger.info({ openCount: open.length, totalAfterDateFilter: raw.length }, 'poReleases: after receipts filter');
-
       if (open.length === 0) return [];
 
-      // --- Step 7: enrich with inventory descriptions ---
+      // --- 7. Enrich with inventory + vendors ---
       const invIds = open.map(r => r.arInvtId).filter(id => id > 0);
-      const invMap = invIds.length > 0 ? await inventory.batchGetByIds(invIds) : new Map<number, InventoryItem>();
+      const vendorIds = open.map(r => r.vendorId).filter(id => id > 0);
+      const [invMap, vendorMap] = await Promise.all([
+        invIds.length > 0 ? inventory.batchGetByIds(invIds) : Promise.resolve(new Map<number, InventoryItem>()),
+        vendorIds.length > 0 ? vendors.batchGetByIds(vendorIds) : Promise.resolve(new Map<number, VendorRow>()),
+      ]);
 
       const rows: POReleaseRow[] = open.map(r => {
         const inv = invMap.get(r.arInvtId);
+        const vend = vendorMap.get(r.vendorId);
         return {
           poReleaseId: r.poReleaseId,
           poDetailId: r.poDetailId,
           poId: r.poId,
           poNo: r.poNo,
+          vendorId: r.vendorId,
+          vendorNo: r.vendorNo || vend?.vendorNo || '',
+          vendorName: vend?.company ?? '',
           arInvtId: r.arInvtId,
           itemClass: r.itemClass || inv?.itemClass || '',
           itemNo: r.itemNo || inv?.itemNo || '',
@@ -174,7 +179,6 @@ export function makePOReleasesApi(http: AxiosInstance, inventory: InventoryApi) 
         };
       });
 
-      // Group by promiseDate, sort dates ascending
       const grouped = new Map<string, POReleaseRow[]>();
       for (const r of rows) {
         const list = grouped.get(r.promiseDate) ?? [];

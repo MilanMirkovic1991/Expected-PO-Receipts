@@ -2,22 +2,47 @@ export type SessionMe = { username: string; eplantId: number; email: string };
 
 export type POReleaseRow = {
   poReleaseId: number; poDetailId: number; poId: number; poNo: string;
+  vendorId: number; vendorNo: string; vendorName: string;
   arInvtId: number; itemClass: string; itemNo: string; itemRev: string;
   itemDescription: string; qtyExpected: number; promiseDate: string;
   defaultRecvDesignator: string;
 };
 export type ReleaseGroup = { date: string; items: POReleaseRow[] };
 
-export type Employee = { id: number; displayName: string; username: string; email: string; badge: string };
+export type Employee = {
+  id: number;
+  empNo: string;
+  firstName: string;
+  lastName: string;
+  displayName: string;
+  department: string;
+  /** Alias of empNo. Backend stores this as assigned_to_username. */
+  username: string;
+  /** Alias of empNo. */
+  badge: string;
+  /** PR_EMP has no email column. Always empty for now. */
+  email: string;
+};
+
 export type LocationRow = { id: number; code: string; description: string; isReceive: boolean };
 
-export type TaskSummary = { id: number; status: 'open' | 'in_progress' | 'completed' | 'cancelled'; createdAt: string; createdBy: string; dateFrom: string; dateTo: string };
+export type TaskSummary = {
+  id: number;
+  status: 'open' | 'in_progress' | 'completed' | 'cancelled';
+  createdAt: string;
+  createdBy: string;
+  dateFrom: string;
+  dateTo: string;
+  assignedToName?: string;
+  assignedToBadge?: string;
+};
 
 export type TaskItem = {
   id: number; task_id: number; po_no: string; po_detail_id: number; po_release_id: number;
   promise_date: string; ar_invt_id: number; item_class: string | null; item_no: string;
   item_rev: string | null; item_description: string | null; qty_expected: number;
   default_recv_designator: string | null;
+  vendor_id: number | null; vendor_no: string | null; vendor_name: string | null;
   status: 'pending' | 'received' | 'failed';
   received_qty: number | null; received_lot_no: string | null;
   received_location_id: number | null; received_location_name: string | null;
@@ -25,4 +50,4 @@ export type TaskItem = {
   label_printed: number; label_print_error: string | null; error_message: string | null;
 };
 
-export type TaskDetail = { task: TaskSummary & { assigned_to_username: string; created_by_username: string }; items: TaskItem[] };
+export type TaskDetail = { task: TaskSummary & { assigned_to_username: string; created_by_username: string; assigned_to_name: string | null }; items: TaskItem[] };

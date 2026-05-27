@@ -997,6 +997,7 @@ export const DW_ERROR_CODES = [
 ] as const;
 export type DwErrorCode = typeof DW_ERROR_CODES[number];
 export type DwError = Error & { code: DwErrorCode };
+export type DwReceiptPostError = DwError & { receiptId: number };
 ```
 
 - [ ] **Step 2: Create `backend/src/dwClient/http.ts`** — copy from sibling `../delmiaworks-production-reporter/backend/src/dwClient/http.ts`. Reproduced here for self-containment:
@@ -1582,7 +1583,7 @@ describe('poReceipts.createAndPost', () => {
     const dw = createDwClient({ baseUrl: BASE });
     await expect(dw.poReceipts.createAndPost({
       poDetailId: 10, poReleaseId: 100, qty: 75, lotNo: 'L', locationId: 1, comment: '', username: 'u',
-    })).rejects.toMatchObject({ code: 'DW_RECEIPT_POST_FAILED' });
+    })).rejects.toMatchObject({ code: 'DW_RECEIPT_POST_FAILED', receiptId: 555 });
   });
 });
 ```
@@ -1600,6 +1601,8 @@ Expected: FAIL — `poReceipts` not on dwClient.
 import { AxiosInstance } from 'axios';
 import { makeError } from './http.js';
 import { unwrap } from './shared.js';
+import { DwReceiptPostError } from './types.js';
+import { logger } from '../logger.js';
 
 export type CreateAndPostInput = {
   poDetailId: number;
@@ -1634,7 +1637,7 @@ export function makePOReceiptsApi(http: AxiosInstance) {
           throw makeError('DW_RECEIPT_CREATE_FAILED', `CreatePOReceipt returned no Id: ${JSON.stringify(body)}`);
         }
       } catch (e: any) {
-        if (e?.code === 'DW_RECEIPT_CREATE_FAILED') throw e;
+        if (e?.code === 'DW_RECEIPT_CREATE_FAILED' || e?.code === 'DW_UNREACHABLE') throw e;
         throw makeError('DW_RECEIPT_CREATE_FAILED', `CreatePOReceipt failed: ${e?.message ?? 'unknown'}`, e);
       }
 
@@ -1648,10 +1651,14 @@ export function makePOReceiptsApi(http: AxiosInstance) {
         });
         const body = unwrap<any>(res);
         const masterLabelId = Number(body?.FgMultiId ?? body?.MasterLabelId ?? 0);
+        if (!Number.isFinite(masterLabelId) || masterLabelId <= 0) {
+          logger.warn({ receiptId, body }, 'PostPOReceiptAndUpdateMasterLabel returned no masterLabelId — label print will fail');
+        }
         return { receiptId, masterLabelId };
       } catch (e: any) {
+        if (e?.code === 'DW_UNREACHABLE') throw e;
         const err = makeError('DW_RECEIPT_POST_FAILED', `PostPOReceiptAndUpdateMasterLabel failed: ${e?.message ?? 'unknown'}`, e);
-        (err as any).receiptId = receiptId;
+        (err as DwReceiptPostError).receiptId = receiptId;
         throw err;
       }
     },
@@ -1700,6 +1707,7 @@ describe('labels', () => {
 import { AxiosInstance } from 'axios';
 import { makeError } from './http.js';
 import { unwrap } from './shared.js';
+import { logger } from '../logger.js';
 
 export function makeLabelsApi(http: AxiosInstance) {
   return {
@@ -1708,7 +1716,10 @@ export function makeLabelsApi(http: AxiosInstance) {
         const res = await http.get('/Labels/PrintLabel/PrinterList/0');
         const arr = (unwrap<any[]>(res) ?? []) as any[];
         return arr.map(p => String(p.Name ?? p.PrinterName ?? '')).filter(Boolean);
-      } catch { return []; }
+      } catch (e: any) {
+        logger.warn({ err: e?.message }, 'labels.listPrinters failed — returning empty list');
+        return [];
+      }
     },
 
     async printPurchased(input: { masterLabelId: number; printerName: string; qty: number }): Promise<{ printed: true }> {

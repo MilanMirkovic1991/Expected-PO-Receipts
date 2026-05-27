@@ -1,6 +1,7 @@
 import { AxiosInstance } from 'axios';
 import { makeError } from './http.js';
 import { unwrap } from './shared.js';
+import { logger } from '../logger.js';
 
 export function makeLabelsApi(http: AxiosInstance) {
   return {
@@ -9,7 +10,10 @@ export function makeLabelsApi(http: AxiosInstance) {
         const res = await http.get('/Labels/PrintLabel/PrinterList/0');
         const arr = (unwrap<any[]>(res) ?? []) as any[];
         return arr.map(p => String(p.Name ?? p.PrinterName ?? '')).filter(Boolean);
-      } catch { return []; }
+      } catch (e: any) {
+        logger.warn({ err: e?.message }, 'labels.listPrinters failed — returning empty list');
+        return [];
+      }
     },
 
     async printPurchased(input: { masterLabelId: number; printerName: string; qty: number }): Promise<{ printed: true }> {

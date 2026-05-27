@@ -1,6 +1,8 @@
 import { AxiosInstance } from 'axios';
 import { makeError } from './http.js';
 import { unwrap } from './shared.js';
+import { DwReceiptPostError } from './types.js';
+import { logger } from '../logger.js';
 
 export type CreateAndPostInput = {
   poDetailId: number;
@@ -35,7 +37,7 @@ export function makePOReceiptsApi(http: AxiosInstance) {
           throw makeError('DW_RECEIPT_CREATE_FAILED', `CreatePOReceipt returned no Id: ${JSON.stringify(body)}`);
         }
       } catch (e: any) {
-        if (e?.code === 'DW_RECEIPT_CREATE_FAILED') throw e;
+        if (e?.code === 'DW_RECEIPT_CREATE_FAILED' || e?.code === 'DW_UNREACHABLE') throw e;
         throw makeError('DW_RECEIPT_CREATE_FAILED', `CreatePOReceipt failed: ${e?.message ?? 'unknown'}`, e);
       }
 
@@ -49,10 +51,14 @@ export function makePOReceiptsApi(http: AxiosInstance) {
         });
         const body = unwrap<any>(res);
         const masterLabelId = Number(body?.FgMultiId ?? body?.MasterLabelId ?? 0);
+        if (!Number.isFinite(masterLabelId) || masterLabelId <= 0) {
+          logger.warn({ receiptId, body }, 'PostPOReceiptAndUpdateMasterLabel returned no masterLabelId — label print will fail');
+        }
         return { receiptId, masterLabelId };
       } catch (e: any) {
+        if (e?.code === 'DW_UNREACHABLE') throw e;
         const err = makeError('DW_RECEIPT_POST_FAILED', `PostPOReceiptAndUpdateMasterLabel failed: ${e?.message ?? 'unknown'}`, e);
-        (err as any).receiptId = receiptId;
+        (err as DwReceiptPostError).receiptId = receiptId;
         throw err;
       }
     },

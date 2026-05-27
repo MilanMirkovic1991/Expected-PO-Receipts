@@ -14,3 +14,4 @@ export const DW_ERROR_CODES = [
 ] as const;
 export type DwErrorCode = typeof DW_ERROR_CODES[number];
 export type DwError = Error & { code: DwErrorCode };
+export type DwReceiptPostError = DwError & { receiptId: number };

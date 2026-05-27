@@ -37,6 +37,6 @@ describe('poReceipts.createAndPost', () => {
     const dw = createDwClient({ baseUrl: BASE });
     await expect(dw.poReceipts.createAndPost({
       poDetailId: 10, poReleaseId: 100, qty: 75, lotNo: 'L', locationId: 1, comment: '', username: 'u',
-    })).rejects.toMatchObject({ code: 'DW_RECEIPT_POST_FAILED' });
+    })).rejects.toMatchObject({ code: 'DW_RECEIPT_POST_FAILED', receiptId: 555 });
   });
 });

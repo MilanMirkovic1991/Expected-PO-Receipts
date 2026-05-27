@@ -192,12 +192,6 @@ export type Config = {
   logLevel: string;
 };
 
-function required(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env: ${name}`);
-  return v;
-}
-
 export function loadConfig(): Config {
   return {
     port: Number(process.env.PORT ?? 3000),
@@ -259,6 +253,7 @@ Expected: FAIL — `createApp` not exported.
 - [ ] **Step 8: Create `backend/src/server.ts`**
 
 ```ts
+import { pathToFileURL } from 'node:url';
 import express, { Express } from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
@@ -274,7 +269,7 @@ export function createApp(): Express {
   return app;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const cfg = loadConfig();
   const app = createApp();
   app.listen(cfg.port, () => logger.info({ port: cfg.port }, 'server listening'));

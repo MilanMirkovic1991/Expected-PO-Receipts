@@ -1,3 +1,4 @@
+import { pathToFileURL } from 'node:url';
 import express, { Express } from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
@@ -13,7 +14,7 @@ export function createApp(): Express {
   return app;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const cfg = loadConfig();
   const app = createApp();
   app.listen(cfg.port, () => logger.info({ port: cfg.port }, 'server listening'));

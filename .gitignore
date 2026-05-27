@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+pino.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# SQLite data
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test output
+coverage/
+.nyc_output/
+
+# Caches
+.cache/
+.turbo/
+.vite/
+
+# Vendor documentation / reference (not project source)
+*.pdf
+DelmiaWorks-API-Reference.md
+DelmiaWorks-API-scraped.json
+Konvertuj-TxtUMd.ps1
+

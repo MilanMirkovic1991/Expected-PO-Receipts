@@ -1,0 +1,16 @@
+Potrebno je da napravimo WEB aplikaciju koju ćemo moći da koristimo na računaru i na mobilnom uređaju.
+
+Prvenstveno se oslanjamo na modul nabavke. Unosi se početni i kranji datum. Oba su opcioni unos. Ako korisnik ne unese početni datum smatra se da je to datum otvaranja aplikacije, dakle današnji datum. Krajnji datum je opcioni unos. Ako se ne unese sistem ide maltene u beskonačno. Ideja je da korisnik unese raspone datuma. Alternativno - korisnik unosi početni datum i u zasebno polje unosi "naredni broj dana" koje na početni datum unosi broj dana kako bi se formirao kranji datum.
+
+Pomoću ta dva datuma sistem sada treba da gleda sve nabavne porudžbenice (PO). Potrebno je da grupiše podatke po datumu. Za svaki datum koji upada u opseg izlistava podatke grupisane po datumu.
+Datum koji se posmatra je Promise Date sa nabavne porudžbenice iz PO Releases, za svaki artikal sa nabavne porudžbenice.
+
+Informacije koje prikazuje su sve informacije o artiklu - Klasa, Itemno, Rev, Descrip, količina i Receive designator lokacija za taj artikal, odnosno mesto na koje se taj artikal prima. Ako nije definisano prikazuje se default Receive Designator lokacija. Aplikacija prikazuje samo otvorene stavke koje još uvek nisu primljene u magacin.
+
+Korisnik sada selektuje željene stavke i klikom na dugme "Generate Expected POs" generiše zbirnu listu očekivanih prijema za magacionera.
+
+Magacioner dobija notifikaciju sa linkom kojim pristupa na dokument "Expected POs" i klikom na link pristupa aplikaciji i vidi sve što mu je pripremljeno za prijem.
+
+Od magacionera se zahteva da unese broj lota, količinu prijema i lokaciju na kojoj je zaprimio artikal.
+
+Potrebno je da aplikacija uradi prijem artikala u magacin putem API funkcija.

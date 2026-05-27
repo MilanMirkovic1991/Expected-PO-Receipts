@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { authApi } from './api/auth.js';
 import { useSession } from './store/session.js';
 import { Login } from './pages/Login.js';
+import { NavHeader } from './components/NavHeader.js';
+import { useNotifications } from './hooks/useNotifications.js';
 
 function Protected() {
   const me = useSession(s => s.me);
@@ -11,9 +13,15 @@ function Protected() {
   useEffect(() => {
     authApi.me().then(setMe).catch(() => setMe(null)).finally(() => setLoading(false));
   }, [setMe]);
+  useNotifications();
   if (loading) return <div className="app"><p>Loading…</p></div>;
   if (!me) return <Navigate to="/login" replace />;
-  return <Outlet />;
+  return (
+    <>
+      <NavHeader />
+      <Outlet />
+    </>
+  );
 }
 
 export function App() {

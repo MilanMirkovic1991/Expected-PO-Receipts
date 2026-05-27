@@ -1,8 +1,31 @@
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { authApi } from './api/auth.js';
+import { useSession } from './store/session.js';
+import { Login } from './pages/Login.js';
+
+function Protected() {
+  const me = useSession(s => s.me);
+  const setMe = useSession(s => s.setMe);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    authApi.me().then(setMe).catch(() => setMe(null)).finally(() => setLoading(false));
+  }, [setMe]);
+  if (loading) return <div className="app"><p>Loading…</p></div>;
+  if (!me) return <Navigate to="/login" replace />;
+  return <Outlet />;
+}
+
 export function App() {
   return (
-    <div className="app">
-      <header><h1>Expected PO Receipts</h1></header>
-      <main>Loading…</main>
-    </div>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route element={<Protected />}>
+        <Route path="/" element={<Navigate to="/planning" replace />} />
+        <Route path="/planning" element={<div className="app"><p>Planning (TODO)</p></div>} />
+        <Route path="/receiving" element={<div className="app"><p>Receiving (TODO)</p></div>} />
+        <Route path="/receiving/:id" element={<div className="app"><p>Receiving task (TODO)</p></div>} />
+      </Route>
+    </Routes>
   );
 }

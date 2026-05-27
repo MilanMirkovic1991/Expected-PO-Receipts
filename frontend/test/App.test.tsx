@@ -1,11 +1,19 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { App } from '../src/App.js';
 
+vi.mock('../src/api/auth.js', () => ({
+  authApi: {
+    me: vi.fn(() => new Promise(() => {})), // never resolves → keeps loading state
+    login: vi.fn(),
+    logout: vi.fn(),
+  },
+}));
+
 describe('App', () => {
-  it('renders the app title', () => {
+  it('renders loading state on boot', () => {
     render(<MemoryRouter><App /></MemoryRouter>);
-    expect(screen.getByText(/Expected PO Receipts/i)).toBeInTheDocument();
+    expect(screen.getByText(/Loading/i)).toBeInTheDocument();
   });
 });
